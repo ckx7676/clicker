@@ -1,3 +1,4 @@
 pillow
 pywin32
 keyboard
+pyinstaller==6.2.0
