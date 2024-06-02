@@ -28,7 +28,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='app',
+    name='点点侠',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
