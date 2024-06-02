@@ -323,6 +323,7 @@ class App:
     def __init__(self, root):
         self.root = root
         self.root.title("点点侠")
+        self.root.iconbitmap(resource_path("app.ico"))
         window_width = 350
         window_height = 650
         screen_width = root.winfo_screenwidth()
