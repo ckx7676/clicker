@@ -29,6 +29,8 @@ cd clicker
 pip install -r requirements.txt
 4. 运行程序：
 python app.py
+5. 编译exe文件：
+pyinstaller app.spec
 
 贡献
 
