@@ -96,6 +96,7 @@ class BindWindowButton(tk.Button):
     def check_hwnd_exist(self, hwnd):
         exist = ctypes.windll.user32.IsWindow(hwnd)
         if not exist:
+            self.window_label.config(text='step1.拖动准心到目标窗口进行绑定')
             self.config(image=self.crosshair_img)
         return exist
 
