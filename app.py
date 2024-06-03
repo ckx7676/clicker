@@ -219,11 +219,14 @@ class PlayPauseButton(tk.Canvas):
         self.key_listener.set_state("normal")
 
     def toggle_start(self):
+        ready, hwnd, loop_keys = self.check_run_ready()
+        if not ready:
+            return
         self.create_pause_icon()
         self.runing = 1
         self.window_finder.set_state("disabled")
         self.key_listener.set_state("disabled")
-        threading.Thread(target=self.run_loop, daemon=True).start()
+        threading.Thread(target=self.run_loop, args=(hwnd, loop_keys), daemon=True).start()
 
     def toggle_state(self, event):
         if not self.runing:
@@ -232,34 +235,39 @@ class PlayPauseButton(tk.Canvas):
             self.toggle_stop()
             winsound.PlaySound(resource_path("stop.wav"), winsound.SND_FILENAME | winsound.SND_ASYNC)
 
-    def run_loop(self):
+    def check_run_ready(self):
+        ready, hwnd, loop_keys = False, None, list()
+        bind_button = self.window_finder.bind_button
+        hwnd = bind_button.hwnd
+        if not hwnd:
+            return ready, hwnd, loop_keys
+        key_list = self.key_listener.key_list
+        for key_frame in key_list:
+            press_key = key_frame.key_button.key
+            press_key_code = key_frame.key_button.key_code
+            delay_ms = key_frame.delay_entry.get()
+            if not press_key:
+                continue
+            if not delay_ms:
+                continue
+            loop_keys.append((press_key_code, int(delay_ms)))
+        if not loop_keys:
+            return ready, hwnd, loop_keys
+        ready = True
+        return ready, hwnd, loop_keys
+        
+    def run_loop(self, hwnd, loop_keys):
         try:
             bind_button = self.window_finder.bind_button
-            hwnd = bind_button.hwnd
-            if not hwnd:
-                return
-            key_list = self.key_listener.key_list
-            loop_keys = list()
-            for key_frame in key_list:
-                press_key = key_frame.key_button.key
-                press_key_code = key_frame.key_button.key_code
-                delay_ms = key_frame.delay_entry.get()
-                if not press_key:
-                    continue
-                if not delay_ms:
-                    continue
-                loop_keys.append((press_key_code, int(delay_ms)))
-            if not loop_keys:
-                return
             winsound.PlaySound(resource_path("start.wav"), winsound.SND_FILENAME | winsound.SND_ASYNC)
             kb = Keyboard(hwnd)
             key_data_heap = list()
             for idx, (press_key_code, sleep_time) in enumerate(loop_keys):
                 heapq.heappush(key_data_heap, (idx, press_key_code, sleep_time))
-            while bind_button.check_hwnd_exist(hwnd) and hwnd == bind_button.hwnd and self.runing:
+            while self.runing and hwnd == bind_button.hwnd and bind_button.check_hwnd_exist(hwnd):
                 next_press_time, press_key_code, sleep_time = heapq.heappop(key_data_heap)
-                while (time.time() * 1000) < next_press_time and hwnd == bind_button.hwnd and \
-                        bind_button.check_hwnd_exist(hwnd) and self.runing:
+                while (time.time() * 1000) < next_press_time and self.runing and hwnd == bind_button.hwnd and \
+                        bind_button.check_hwnd_exist(hwnd):
                     sleep(10)
                 kb.kPress(press_key_code)
                 next_press_time = time.time() * 1000 + sleep_time
