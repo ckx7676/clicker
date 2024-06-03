@@ -144,6 +144,8 @@ class KeyDelayFrame(tk.Frame):
         self.delay_entry = tk.Entry(self, width=8, justify='center', validate="key",
                                     validatecommand=(self.vcmd, '%P'))
         self.delay_entry.insert(0, "200")
+        self.delay_entry.bind('<Return>', lambda event: event.widget.master.focus())
+        self.delay_entry.bind('<Escape>', lambda event: event.widget.master.focus())
         self.delay_entry.pack(side=tk.LEFT, padx=5)
         self.pack(anchor='w')
 
