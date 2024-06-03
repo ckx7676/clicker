@@ -99,6 +99,13 @@ class BindWindowButton(tk.Button):
             self.config(image=self.crosshair_img)
         return exist
 
+    def set_state(self, state):
+        self.config(state=state)
+        if state == "disabled":
+            self.unbind("<ButtonPress-1>")
+        else:
+            self.bind("<ButtonPress-1>", self.start_drag)
+
 
 class WindowFinder(tk.Frame):
     def __init__(self, master=None, cnf={}, **kwargs):
@@ -109,6 +116,9 @@ class WindowFinder(tk.Frame):
 
         self.bind_button = BindWindowButton(self, self.window_label)
         self.bind_button.pack()
+
+    def set_state(self, state):
+        self.bind_button.set_state(state)
 
 
 class KeyButton(tk.Button):
@@ -154,6 +164,10 @@ class KeyDelayFrame(tk.Frame):
             return True
         return False
 
+    def set_state(self, state):
+        self.key_button.config(state=state)
+        self.delay_entry.config(state=state)
+
 
 class KeyListener(tk.Frame):
     def __init__(self, master=None, root=None, key_num=10, cnf={}, **kwargs):
@@ -172,6 +186,10 @@ class KeyListener(tk.Frame):
         for _ in range(key_num):
             key_frame = KeyDelayFrame(self, root)
             self.key_list.append(key_frame)
+
+    def set_state(self, state):
+        for key_frame in self.key_list:
+            key_frame.set_state(state)
 
 
 class PlayPauseButton(tk.Canvas):
@@ -196,10 +214,14 @@ class PlayPauseButton(tk.Canvas):
     def toggle_stop(self):
         self.create_play_icon()
         self.runing = 0
+        self.window_finder.set_state("normal")
+        self.key_listener.set_state("normal")
 
     def toggle_start(self):
         self.create_pause_icon()
         self.runing = 1
+        self.window_finder.set_state("disabled")
+        self.key_listener.set_state("disabled")
         threading.Thread(target=self.run_loop, daemon=True).start()
 
     def toggle_state(self, event):
