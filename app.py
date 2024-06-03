@@ -268,7 +268,7 @@ class Page(tk.Frame):
 
 
 class MultiTabs(ttk.Notebook):
-    def __init__(self, master=None, tab=None, root=None, init_tab_amount=3, **kw):
+    def __init__(self, master=None, tab=None, root=None, init_tab_amount=1, **kw):
         super().__init__(master, **kw)
         self.tab = tab
         self.root = root
