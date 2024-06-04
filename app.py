@@ -51,6 +51,7 @@ class BindWindowButton(tk.Button):
         super().__init__(master, **kwargs)
         self.window_label = window_label
         self.hwnd = None
+        self.master_hwnd = self.get_top_level_hwnd()
         self.crosshair_img = ImageTk.PhotoImage(self.create_crosshair_image(30, 30))
         self.crosshair_selected_img = ImageTk.PhotoImage(self.create_crosshair_image(30, 30, True))
         self.drag_img = ImageTk.PhotoImage(Image.new("RGBA", (30, 30), (0, 0, 0, 0)))
@@ -66,6 +67,24 @@ class BindWindowButton(tk.Button):
         draw.line((width // 2, 0, width // 2, height), fill="black", width=1)
         draw.line((0, height // 2, width, height // 2), fill="black", width=1)
         return image
+
+    def get_top_level_hwnd(self):
+        hwnd = self.winfo_id()
+        while True:
+            parent_hwnd = ctypes.windll.user32.GetParent(hwnd)
+            if not parent_hwnd:
+                break
+            hwnd = parent_hwnd
+        return hwnd
+
+    def is_child_window(self, hwnd, parent_hwnd):
+        if hwnd == parent_hwnd:
+            return True
+        while hwnd:
+            hwnd = win32gui.GetParent(hwnd)
+            if hwnd == parent_hwnd:
+                return True
+        return False
 
     def start_drag(self, event):
         self.hwnd = None
@@ -85,7 +104,8 @@ class BindWindowButton(tk.Button):
         self.config(cursor="")
         self.unbind("<Motion>")
         self.unbind("<ButtonRelease-1>")
-
+        if self.is_child_window(self.hwnd, self.master_hwnd):
+            self.hwnd = None
         if self.window_label and self.hwnd:
             title = win32gui.GetWindowText(self.hwnd)
             self.window_label.config(text=f'step1.绑定窗口:{title}')
@@ -96,7 +116,8 @@ class BindWindowButton(tk.Button):
     def check_hwnd_exist(self, hwnd):
         exist = ctypes.windll.user32.IsWindow(hwnd)
         if not exist:
-            self.window_label.config(text='step1.拖动准心到目标窗口进行绑定')
+            if self.window_label:
+                self.window_label.config(text='step1.拖动准心到目标窗口进行绑定')
             self.config(image=self.crosshair_img)
         return exist
 
