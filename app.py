@@ -161,7 +161,6 @@ class KeyButton(tk.Button):
 
         def on_click(event):
             if event.widget is not button:
-                button.config(text='点击开始按键', bg='SystemButtonFace')
                 self.root.unbind('<Key>')
                 self.root.unbind('<Button-1>')
 
