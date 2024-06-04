@@ -159,10 +159,32 @@ class KeyButton(tk.Button):
             button.config(text=f'按键: {button.key}', bg='skyblue')
             self.root.unbind('<Key>')
 
+        def on_click(event):
+            if event.widget is not button:
+                button.config(text='点击开始按键', bg='SystemButtonFace')
+                self.root.unbind('<Key>')
+                self.root.unbind('<Button-1>')
+
         self.root.bind('<Key>', on_key_press)
+        self.root.bind('<Button-1>', on_click)
         button.config(text='等待按键...', bg='SystemButtonFace')
         button.key = None
         button.key_code = None
+
+
+class DelayEntry(tk.Entry):
+    def __init__(self, master=None, root=None, cnf={}, **kwargs):
+        super().__init__(master, cnf, **kwargs)
+        self.root = root
+        self.bind("<FocusIn>", self.start_listening)
+
+    def start_listening(self, event):
+        def on_click(event):
+            if event.widget is not self:
+                self.root.focus()
+                self.root.unbind('<Button-1>')
+
+        self.root.bind('<Button-1>', on_click)
 
 
 class KeyDelayFrame(tk.Frame):
@@ -173,8 +195,8 @@ class KeyDelayFrame(tk.Frame):
         self.key_button.pack(side=tk.LEFT, padx=5)
 
         self.vcmd = self.register(self.validate_positive_integers_input)
-        self.delay_entry = tk.Entry(self, width=8, justify='center', validate="key",
-                                    validatecommand=(self.vcmd, '%P'))
+        self.delay_entry = DelayEntry(self, root, width=8, justify='center', validate="key",
+                                      validatecommand=(self.vcmd, '%P'))
         self.delay_entry.insert(0, "200")
         self.delay_entry.bind('<Return>', lambda event: event.widget.master.focus())
         self.delay_entry.bind('<Escape>', lambda event: event.widget.master.focus())
