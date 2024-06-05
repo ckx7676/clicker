@@ -25,41 +25,41 @@
 ```
 git clone https://github.com/ckx7676/clicker.git
 ```
-
 2.进入项目目录：
 ```
 cd clicker
 ```
-
 3.安装所需依赖：
 ```
 pip install -r requirements.txt
 ```
-
 4.运行程序：
 ```
 python app.py
 ```
 
-5.编译exe文件：
-### 使用 PyInstaller 编译
-  1.安装指定版本的 PyInstaller：
-  ```
-  pip install pyinstaller==6.2.0
-  ```
-  2.使用 .spec 文件进行编译：
-  ```
-  pyinstaller app.spec
-  ```
-### 使用 Nuitka 编译
-  1.安装指定版本的 Nuitka：
-  ```
-  pip install Nuitka==2.3
-  ```
-  2.运行批处理文件进行编译：
-  ```
-  build.bat
-  ```
+## 编译exe文件：
+
+使用 PyInstaller 编译
+1.安装指定版本的 PyInstaller：
+```
+pip install pyinstaller==6.2.0
+```
+2.使用 .spec 文件进行编译：
+```
+pyinstaller app.spec
+```
+
+使用 Nuitka 编译
+1.安装指定版本的 Nuitka：
+```
+pip install Nuitka==2.3
+```
+2.运行批处理文件进行编译：
+```
+build.bat
+```
+
 ### 说明
 - 使用 PyInstaller 和 Nuitka 两种方式可以选择任意一种进行编译。
 - 确保在编译之前安装正确的依赖项和指定版本的编译工具。
