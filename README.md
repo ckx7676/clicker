@@ -38,9 +38,10 @@ pip install -r requirements.txt
 python app.py
 ```
 
-## 编译exe文件：
+## 编译exe文件
 
 使用 PyInstaller 编译
+
 1.安装指定版本的 PyInstaller：
 ```
 pip install pyinstaller==6.2.0
@@ -51,6 +52,7 @@ pyinstaller app.spec
 ```
 
 使用 Nuitka 编译
+
 1.安装指定版本的 Nuitka：
 ```
 pip install Nuitka==2.3
