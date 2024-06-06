@@ -1,13 +1,16 @@
 @echo off
 
 nuitka ^
+  --mingw64 ^
   --lto=yes ^
   --standalone ^
   --onefile ^
+  --assume-yes-for-downloads ^
   --plugin-enable=upx ^
   --enable-plugin=tk-inter ^
   --windows-disable-console ^
   --output-dir=dist ^
+  --remove-output ^
   --show-progress ^
   --include-data-file=start.wav=start.wav ^
   --include-data-file=stop.wav=stop.wav ^
