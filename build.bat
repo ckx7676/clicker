@@ -17,4 +17,5 @@ nuitka ^
   --include-data-file=app.ico=app.ico ^
   --windows-icon-from-ico=app.ico ^
   --windows-uac-admin ^
+  --output-filename=diandianxia ^
   app.py
