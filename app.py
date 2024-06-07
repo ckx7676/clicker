@@ -109,12 +109,13 @@ class BindWindowButton(tk.Button):
         else:
             self.config(image=self.crosshair_img)
 
-    def check_hwnd_exist(self, hwnd):
-        exist = ctypes.windll.user32.IsWindow(hwnd)
+    def check_hwnd_exist(self):
+        exist = ctypes.windll.user32.IsWindow(self.hwnd)
         if not exist:
             if self.window_label:
                 self.window_label.config(text='step1.拖动准心到目标窗口进行绑定')
             self.config(image=self.crosshair_img)
+            self.hwnd = None
         return exist
 
     def set_state(self, state):
@@ -278,6 +279,7 @@ class PlayPauseButton(tk.Canvas):
     def check_run_ready(self):
         ready, hwnd, loop_keys = False, None, list()
         bind_button = self.window_finder.bind_button
+        bind_button.check_hwnd_exist()
         hwnd = bind_button.hwnd
         if not hwnd:
             return ready, hwnd, loop_keys
@@ -304,10 +306,10 @@ class PlayPauseButton(tk.Canvas):
             key_data_heap = list()
             for idx, (press_key_code, sleep_time) in enumerate(loop_keys):
                 heapq.heappush(key_data_heap, (idx, press_key_code, sleep_time))
-            while self.runing and hwnd == bind_button.hwnd and bind_button.check_hwnd_exist(hwnd):
+            while self.runing and hwnd == bind_button.hwnd and bind_button.check_hwnd_exist():
                 next_press_time, press_key_code, sleep_time = heapq.heappop(key_data_heap)
                 while (time.time() * 1000) < next_press_time and self.runing and hwnd == bind_button.hwnd and \
-                        bind_button.check_hwnd_exist(hwnd):
+                        bind_button.check_hwnd_exist():
                     sleep(10)
                 kb.kPress(press_key_code)
                 next_press_time = time.time() * 1000 + sleep_time
