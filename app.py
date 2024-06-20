@@ -310,7 +310,7 @@ class PlayPauseButton(tk.Canvas):
                 next_press_time, press_key_code, sleep_time = heapq.heappop(key_data_heap)
                 while (time.time() * 1000) < next_press_time and self.runing and hwnd == bind_button.hwnd and \
                         bind_button.check_hwnd_exist():
-                    sleep(10)
+                    sleep(5)
                 kb.kPress(press_key_code)
                 next_press_time = time.time() * 1000 + sleep_time
                 heapq.heappush(key_data_heap, (next_press_time, press_key_code, sleep_time))
