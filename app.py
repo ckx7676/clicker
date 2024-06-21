@@ -195,17 +195,17 @@ class KeyDelayFrame(tk.Frame):
         self.key_button = KeyButton(self, root)
         self.key_button.pack(side=tk.LEFT, padx=5)
 
-        self.vcmd = self.register(self.validate_positive_integers_input)
+        self.vcmd = self.register(self.validate_non_negative_integers_input)
         self.delay_entry = DelayEntry(self, root, width=8, justify='center', validate="key",
                                       validatecommand=(self.vcmd, '%P'))
-        self.delay_entry.insert(0, "200")
+        self.delay_entry.insert(0, "100")
         self.delay_entry.bind('<Return>', lambda event: event.widget.master.focus())
         self.delay_entry.bind('<Escape>', lambda event: event.widget.master.focus())
         self.delay_entry.pack(side=tk.LEFT, padx=5)
         self.pack(anchor='w')
 
-    def validate_positive_integers_input(self, text):
-        if not text or (text.isdigit() and 0 < int(text) < 10000000):
+    def validate_non_negative_integers_input(self, text):
+        if not text or (text.isdigit() and 0 <= int(text) < 10000000):
             return True
         return False
 
