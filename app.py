@@ -33,9 +33,12 @@ class Keyboard:
 
     def kPress(self, key):
         if self.hwnd:
-            win32api.PostMessage(self.hwnd, win32con.WM_KEYDOWN, key, 0)
+            scancode = win32api.MapVirtualKey(key, 0)
+            lParam_down = 1 | (scancode << 16)
+            lParam_up = 1 | (scancode << 16) | (1 << 30) | (1 << 31)
+            win32api.PostMessage(self.hwnd, win32con.WM_KEYDOWN, key, lParam_down)
             sleep(5)
-            win32api.PostMessage(self.hwnd, win32con.WM_KEYUP, key, 0)
+            win32api.PostMessage(self.hwnd, win32con.WM_KEYUP, key, lParam_up)
         else:
             win32api.keybd_event(key, 0, 0, 0)
             sleep(5)
