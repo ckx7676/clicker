@@ -18,7 +18,7 @@ STOP_HOT_KEY = 'alt+q'
 
 def sleep(ms, random_delay=False):
     if random_delay:
-        ms += (random.randint(3, 20) / 1000)
+        ms += (random.randint(3, 10) / 1000)
     x, y = divmod(ms, 1000)
     for _ in range(int(x)): time.sleep(1)
     time.sleep(y / 1000)
@@ -52,6 +52,9 @@ class BindWindowButton(tk.Button):
         super().__init__(master, **kwargs)
         self.window_label = window_label
         self.hwnd = None
+        self.last_hwnd_check_time = 0
+        self.hwnd_cache_duration = 0.5
+        self.hwnd_exists_cache = True
         self.master_hwnd = self.get_top_level_hwnd()
         self.crosshair_img = ImageTk.PhotoImage(self.create_crosshair_image(30, 30))
         self.crosshair_selected_img = ImageTk.PhotoImage(self.create_crosshair_image(30, 30, True))
@@ -114,8 +117,14 @@ class BindWindowButton(tk.Button):
         else:
             self.config(image=self.crosshair_img)
 
-    def check_hwnd_exist(self):
+    def check_hwnd_exist(self, use_cache=False):
+        current_time = time.time()
+        if use_cache and self.hwnd_exists_cache:
+            if current_time - self.last_hwnd_check_time < self.hwnd_cache_duration:
+                return self.hwnd_exists_cache
         exist = ctypes.windll.user32.IsWindow(self.hwnd)
+        self.hwnd_exists_cache = exist
+        self.last_hwnd_check_time = current_time
         if not exist:
             if self.window_label:
                 self.window_label.config(text='step1.拖动准心到目标窗口进行绑定')
@@ -319,15 +328,14 @@ class PlayPauseButton(tk.Canvas):
             key_data_heap = list()
             for idx, (press_key_code, sleep_time) in enumerate(loop_keys):
                 heapq.heappush(key_data_heap, (idx, press_key_code, sleep_time))
-            while self.runing and hwnd == bind_button.hwnd and bind_button.check_hwnd_exist():
+            while self.runing and hwnd == bind_button.hwnd and bind_button.check_hwnd_exist(True):
                 next_press_time, press_key_code, sleep_time = heapq.heappop(key_data_heap)
-                while (time.time() * 1000) < next_press_time and self.runing and hwnd == bind_button.hwnd and \
-                        bind_button.check_hwnd_exist():
-                    sleep(5)
+                while (time.time() * 1000) < next_press_time and self.runing and bind_button.check_hwnd_exist(True):
+                    sleep(5, True)
                 kb.kPress(press_key_code)
                 next_press_time = time.time() * 1000 + sleep_time
                 heapq.heappush(key_data_heap, (next_press_time, press_key_code, sleep_time))
-                sleep(5)
+                sleep(5, True)
         finally:
             self.toggle_stop()
 
@@ -440,4 +448,5 @@ if __name__ == '__main__':
     if ctypes.windll.shell32.IsUserAnAdmin():
         main()
     else:
-        ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, __file__, None, 1)
+        ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, None, None, 1)
+        sys.exit(0)
