@@ -12,11 +12,13 @@ import keyboard
 import winsound
 import os
 
-START_HOT_KEY = 'alt+w'
+START_HOT_KEY = 'alt+e'
+STOP_HOT_KEY = 'alt+q'
 
 
-def sleep(ms):
-    ms += (random.randint(3, 20) / 1000)
+def sleep(ms, random_delay=False):
+    if random_delay:
+        ms += (random.randint(3, 20) / 1000)
     x, y = divmod(ms, 1000)
     for _ in range(int(x)): time.sleep(1)
     time.sleep(y / 1000)
@@ -37,11 +39,11 @@ class Keyboard:
             lParam_down = 1 | (scancode << 16)
             lParam_up = 1 | (scancode << 16) | (1 << 30) | (1 << 31)
             win32api.PostMessage(self.hwnd, win32con.WM_KEYDOWN, key, lParam_down)
-            sleep(5)
+            sleep(5, True)
             win32api.PostMessage(self.hwnd, win32con.WM_KEYUP, key, lParam_up)
         else:
             win32api.keybd_event(key, 0, 0, 0)
-            sleep(5)
+            sleep(5, True)
             win32api.keybd_event(key, 0, win32con.KEYEVENTF_KEYUP, 0)
 
 
@@ -205,7 +207,7 @@ class KeyDelayFrame(tk.Frame):
         self.pack(anchor='w')
 
     def validate_non_negative_integers_input(self, text):
-        if not text or (text.isdigit() and 0 <= int(text) < 10000000):
+        if not text or (text.isdigit() and 0 <= int(text) < 1e7):
             return True
         return False
 
@@ -234,7 +236,11 @@ class KeyListener(tk.Frame):
 
     def set_state(self, state):
         for key_frame in self.key_list:
-            key_frame.set_state(state)
+            if state == 'disabled':
+                if key_frame.key_button.key:
+                    key_frame.set_state(state)
+            else:
+                key_frame.set_state(state)
 
 
 class PlayPauseButton(tk.Canvas):
@@ -246,7 +252,8 @@ class PlayPauseButton(tk.Canvas):
         self.runing = 0
         self.create_play_icon()
         self.bind("<Button-1>", self.toggle_state)
-        keyboard.add_hotkey(START_HOT_KEY, lambda: self.toggle_state(None))
+        keyboard.add_hotkey(START_HOT_KEY, lambda: self.toggle_start())
+        keyboard.add_hotkey(STOP_HOT_KEY, lambda: self.toggle_stop())
 
     def create_play_icon(self):
         self.delete("all")
@@ -257,27 +264,30 @@ class PlayPauseButton(tk.Canvas):
         self.create_rectangle(10, 10, 36, 38, fill="red", outline="white")
 
     def toggle_stop(self):
-        self.create_play_icon()
-        self.runing = 0
-        self.window_finder.set_state("normal")
-        self.key_listener.set_state("normal")
+        if self.runing:
+            self.create_play_icon()
+            self.window_finder.set_state("normal")
+            self.key_listener.set_state("normal")
+            winsound.PlaySound(resource_path("stop.wav"), winsound.SND_FILENAME | winsound.SND_ASYNC)
+            self.runing = 0
 
     def toggle_start(self):
-        ready, hwnd, loop_keys = self.check_run_ready()
-        if not ready:
-            return
-        self.create_pause_icon()
-        self.runing = 1
-        self.window_finder.set_state("disabled")
-        self.key_listener.set_state("disabled")
-        threading.Thread(target=self.run_loop, args=(hwnd, loop_keys), daemon=True).start()
+        if not self.runing:
+            ready, hwnd, loop_keys = self.check_run_ready()
+            if not ready:
+                return
+            self.create_pause_icon()
+            self.window_finder.set_state("disabled")
+            self.key_listener.set_state("disabled")
+            winsound.PlaySound(resource_path("start.wav"), winsound.SND_FILENAME | winsound.SND_ASYNC)
+            self.runing = 1
+            threading.Thread(target=self.run_loop, args=(hwnd, loop_keys), daemon=True).start()
 
     def toggle_state(self, event):
         if not self.runing:
             self.toggle_start()
         else:
             self.toggle_stop()
-            winsound.PlaySound(resource_path("stop.wav"), winsound.SND_FILENAME | winsound.SND_ASYNC)
 
     def check_run_ready(self):
         ready, hwnd, loop_keys = False, None, list()
@@ -294,17 +304,17 @@ class PlayPauseButton(tk.Canvas):
             if not press_key:
                 continue
             if not delay_ms:
-                continue
+                key_frame.delay_entry.insert(0, "0")
+                delay_ms = 0
             loop_keys.append((press_key_code, int(delay_ms)))
         if not loop_keys:
             return ready, hwnd, loop_keys
         ready = True
         return ready, hwnd, loop_keys
-        
+
     def run_loop(self, hwnd, loop_keys):
         try:
             bind_button = self.window_finder.bind_button
-            winsound.PlaySound(resource_path("start.wav"), winsound.SND_FILENAME | winsound.SND_ASYNC)
             kb = Keyboard(hwnd)
             key_data_heap = list()
             for idx, (press_key_code, sleep_time) in enumerate(loop_keys):
@@ -333,14 +343,16 @@ class Page(tk.Frame):
         self.key_listener = KeyListener(master, root, key_num=12)
         self.key_listener.pack()
 
-        self.label = tk.Label(master, text=f"step3.点击▷/□启动或暂停(快捷键{START_HOT_KEY})", font=("Arial", 12),
+        self.label = tk.Label(master, text=f"step3.点击▷/□启动({START_HOT_KEY})或暂停({STOP_HOT_KEY})",
+                              font=("Arial", 12),
                               width=30, anchor='w').pack(pady=10)
         self.play_pause_button = PlayPauseButton(master, self.window_finder, self.key_listener)
         self.play_pause_button.pack()
 
     def remove(self):
         self.play_pause_button.toggle_stop()
-        self.play_pause_button.toggle_state = lambda x: 0
+        self.play_pause_button.toggle_start = lambda: 0
+        self.play_pause_button.toggle_stop = lambda: 0
 
 
 class MultiTabs(ttk.Notebook):
