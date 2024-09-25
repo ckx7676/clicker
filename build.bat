@@ -2,11 +2,10 @@
 chcp 65001
 
 nuitka ^
-  --msvc=latest ^
+  --mingw64 ^
   --lto=yes ^
   --standalone ^
   --assume-yes-for-downloads ^
-  --plugin-enable=upx ^
   --enable-plugin=tk-inter ^
   --windows-disable-console ^
   --output-dir=dist ^
