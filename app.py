@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from PIL import Image, ImageTk, ImageDraw
 import threading
 import win32gui, win32api, win32con
@@ -11,9 +11,46 @@ import sys
 import keyboard
 import winsound
 import os
+import configparser
+import subprocess
 
-START_HOT_KEY = 'alt+e'
-STOP_HOT_KEY = 'alt+q'
+DEFAULT_START_HOT_KEY = 'alt+e'
+DEFAULT_STOP_HOT_KEY = 'alt+q'
+START_HOT_KEY = DEFAULT_START_HOT_KEY
+STOP_HOT_KEY = DEFAULT_STOP_HOT_KEY
+CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.ini")
+ICO_FILE = "app.ico"
+
+
+def resource_path(relative_path):
+    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
+
+
+def load_config(config_file):
+    global START_HOT_KEY, STOP_HOT_KEY
+    if os.path.exists(config_file):
+        try:
+            config = configparser.ConfigParser()
+            config.read(config_file, encoding='utf-8')
+            if 'Hotkeys' in config:
+                start_hotkey = config['Hotkeys'].get('start', DEFAULT_START_HOT_KEY).strip()
+                stop_hotkey = config['Hotkeys'].get('stop', DEFAULT_STOP_HOT_KEY).strip()
+                START_HOT_KEY = start_hotkey
+                STOP_HOT_KEY = stop_hotkey
+        except Exception as e:
+            messagebox.showwarning("警告", f"加载配置失败，使用默认值：{str(e)}")
+    else:
+        try:
+            config = configparser.ConfigParser()
+            config['Hotkeys'] = {'start': START_HOT_KEY, 'stop': STOP_HOT_KEY}
+            with open(config_file, 'w', encoding='utf-8') as f:
+                config.write(f)
+        except Exception as e:
+            messagebox.showerror("错误", f"保存失败：{str(e)}")
+
+
+load_config(resource_path(CONFIG_FILE))
 
 
 def sleep(ms, random_delay=False):
@@ -22,11 +59,6 @@ def sleep(ms, random_delay=False):
     x, y = divmod(ms, 1000)
     for _ in range(int(x)): time.sleep(1)
     time.sleep(y / 1000)
-
-
-def resource_path(relative_path):
-    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base_path, relative_path)
 
 
 class Keyboard:
@@ -363,6 +395,353 @@ class Page(tk.Frame):
         self.play_pause_button.toggle_stop = lambda: 0
 
 
+class SimpleHotkeySettings:
+    def __init__(self, parent=None, on_save_callback=None):
+        self.parent = parent
+        self.on_save_callback = on_save_callback
+        if self.parent and not self.parent.winfo_exists():
+            self.parent = None
+        self.config_file = resource_path(CONFIG_FILE)
+        self.setting_window = None
+        self.DEFAULT_HOTKEYS = {
+            'start': DEFAULT_START_HOT_KEY,
+            'stop': DEFAULT_STOP_HOT_KEY
+        }
+        self.hotkeys = self.DEFAULT_HOTKEYS.copy()
+        self.modify_buttons = []
+        self.load_config()
+        self.create_window()
+
+    def load_config(self):
+        if os.path.exists(self.config_file):
+            try:
+                config = configparser.ConfigParser()
+                config.read(self.config_file, encoding='utf-8')
+                if 'Hotkeys' in config:
+                    start_hotkey = config['Hotkeys'].get('start', self.DEFAULT_HOTKEYS['start']).strip()
+                    stop_hotkey = config['Hotkeys'].get('stop', self.DEFAULT_HOTKEYS['stop']).strip()
+                    self.hotkeys['start'] = start_hotkey if start_hotkey else self.DEFAULT_HOTKEYS['start']
+                    self.hotkeys['stop'] = stop_hotkey if stop_hotkey else self.DEFAULT_HOTKEYS['stop']
+            except Exception as e:
+                messagebox.showwarning("警告", f"加载配置失败，使用默认值：{str(e)}")
+                self.save_config()
+        else:
+            self.save_config()
+
+    def save_config(self):
+        if not self.hotkeys['start'] or not self.hotkeys['stop']:
+            messagebox.showwarning("警告", "快捷键不能为空，保存失败！")
+            return False
+        try:
+            config = configparser.ConfigParser()
+            config['Hotkeys'] = self.hotkeys
+            with open(self.config_file, 'w', encoding='utf-8') as f:
+                config.write(f)
+            return True
+        except Exception as e:
+            messagebox.showerror("错误", f"保存失败：{str(e)}")
+            return False
+
+    def create_window(self):
+        self.window = tk.Toplevel(self.parent) if self.parent else tk.Tk()
+        self.window.title("快捷键设置")
+        window_width = 300
+        window_height = 200
+
+        try:
+            ico_path = resource_path(ICO_FILE)
+            if os.path.isfile(ico_path):
+                self.window.iconbitmap(ico_path)
+        except Exception as e:
+            pass
+
+        self.window.geometry(f"{window_width}x{window_height}")
+        self.window.resizable(False, False)
+
+        self.window.protocol("WM_DELETE_WINDOW", self.on_window_close)
+
+        self.window.update_idletasks()
+        screen_width = self.window.winfo_screenwidth()
+        screen_height = self.window.winfo_screenheight()
+        x = (screen_width - window_width) // 2
+        y = (screen_height - window_height) // 2
+        self.window.geometry(f"{window_width}x{window_height}+{x}+{y}")
+
+        tk.Label(self.window, text="快捷键设置", font=("Arial", 12, "bold")).pack(pady=10)
+
+        start_frame = tk.Frame(self.window)
+        start_frame.pack(pady=5)
+        tk.Label(start_frame, text="启动:", width=6).pack(side=tk.LEFT)
+        self.start_var = tk.StringVar(value=self.hotkeys['start'])
+        tk.Label(start_frame, textvariable=self.start_var, width=15,
+                 relief="sunken", padx=5, pady=2).pack(side=tk.LEFT, padx=5)
+        start_btn = tk.Button(start_frame, text="修改", width=6,
+                              command=lambda: self.set_hotkey('start'))
+        start_btn.pack(side=tk.LEFT)
+        self.modify_buttons.append(start_btn)
+
+        stop_frame = tk.Frame(self.window)
+        stop_frame.pack(pady=5)
+        tk.Label(stop_frame, text="停止:", width=6).pack(side=tk.LEFT)
+        self.stop_var = tk.StringVar(value=self.hotkeys['stop'])
+        tk.Label(stop_frame, textvariable=self.stop_var, width=15,
+                 relief="sunken", padx=5, pady=2).pack(side=tk.LEFT, padx=5)
+        stop_btn = tk.Button(stop_frame, text="修改", width=6,
+                             command=lambda: self.set_hotkey('stop'))
+        stop_btn.pack(side=tk.LEFT)
+        self.modify_buttons.append(stop_btn)
+
+        btn_frame = tk.Frame(self.window)
+        btn_frame.pack(pady=15)
+        tk.Button(btn_frame, text="重置", width=8, command=self.reset_hotkeys).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="保存", width=8, command=self.save).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="关闭", width=8, command=self.on_window_close).pack(side=tk.LEFT, padx=5)
+
+    def reset_hotkeys(self):
+        if self.setting_window and self.setting_window.winfo_exists():
+            self.setting_window.grab_release()
+            self.setting_window.destroy()
+            self.setting_window = None
+
+        self.hotkeys = self.DEFAULT_HOTKEYS.copy()
+        self.start_var.set(self.DEFAULT_HOTKEYS['start'])
+        self.stop_var.set(self.DEFAULT_HOTKEYS['stop'])
+
+        messagebox.showinfo("重置成功",
+                            "所有快捷键已恢复为初始默认值！\n启动：alt+e | 停止：alt+q\n\n请点击【保存】按钮生效修改。")
+
+    def normalize_key(self, keysym):
+        key_map = {
+            'return': 'enter',
+            'escape': 'esc',
+            'delete': 'del',
+            'backspace': 'backspace',
+            'tab': 'tab',
+            'space': 'space',
+            'kp_0': '0', 'kp_1': '1', 'kp_2': '2', 'kp_3': '3', 'kp_4': '4',
+            'kp_5': '5', 'kp_6': '6', 'kp_7': '7', 'kp_8': '8', 'kp_9': '9',
+            'kp_add': '+', 'kp_subtract': '-', 'kp_multiply': '*', 'kp_divide': '/',
+            'kp_decimal': '.', 'kp_enter': 'enter'
+        }
+        if keysym.startswith('f') and keysym[1:].isdigit():
+            return keysym.upper()
+        if len(keysym) == 1 and keysym.isalpha():
+            return keysym.lower()
+        return key_map.get(keysym.lower(), keysym.lower())
+
+    def set_hotkey(self, hotkey_type):
+        if self.setting_window and self.setting_window.winfo_exists():
+            self.setting_window.lift()
+            self.setting_window.focus_force()
+            return
+
+        self.setting_window = tk.Toplevel(self.window)
+        self.setting_window.title(f"设置{'启动' if hotkey_type == 'start' else '停止'}快捷键")
+        setting_window_width = 300
+        setting_window_height = 150
+        self.setting_window.geometry(f"{setting_window_width}x{setting_window_height}")
+        self.setting_window.resizable(False, False)
+
+        try:
+            ico_path = resource_path(ICO_FILE)
+            if os.path.isfile(ico_path):
+                self.setting_window.iconbitmap(ico_path)
+        except Exception as e:
+            pass
+
+        self.setting_window.grab_set()
+        self.setting_window.focus_force()
+
+        self.disable_modify_buttons(True)
+
+        self.setting_window.update_idletasks()
+        x = self.window.winfo_x() + (self.window.winfo_width() - setting_window_width) // 2
+        y = self.window.winfo_y() + (self.window.winfo_height() - setting_window_height) // 2
+        self.setting_window.geometry(f"{setting_window_width}x{setting_window_height}+{x}+{y}")
+
+        tip_label = tk.Label(self.setting_window,
+                             text="请按下新的快捷键组合\n（按ESC取消，按Enter确认）",
+                             pady=5)
+        tip_label.pack()
+
+        key_label = tk.Label(self.setting_window, text="等待按键...", font=("Arial", 10, "bold"))
+        key_label.pack(pady=5)
+
+        pressed_modifiers = set()
+        pressed_key = None
+        is_capturing = True
+
+        modifier_mapping = {
+            'control_l': 'ctrl', 'control_r': 'ctrl',
+            'shift_l': 'shift', 'shift_r': 'shift',
+            'alt_l': 'alt', 'alt_r': 'alt',
+            'win_l': 'win', 'win_r': 'win'
+        }
+
+        def key_event_record(event):
+            if not is_capturing or not key_label.winfo_exists():
+                return
+
+            nonlocal pressed_key
+            keysym = event.keysym.lower()
+
+            if keysym == 'escape':
+                close_setting_window()
+                return
+            elif keysym == 'return':
+                if pressed_modifiers or pressed_key:
+                    finish_capture()
+                return
+
+            if keysym in modifier_mapping:
+                pressed_modifiers.add(modifier_mapping[keysym])
+            else:
+                normalized_key = self.normalize_key(keysym)
+                if (normalized_key not in ['??', 'caps_lock', 'num_lock', 'scroll_lock']
+                        and not normalized_key.startswith('iso_')):
+                    pressed_key = normalized_key
+
+            update_display()
+
+        def update_display():
+            if not is_capturing or not key_label.winfo_exists():
+                return
+
+            modifier_order = ['ctrl', 'alt', 'shift', 'win']
+            hotkey_parts = [mod for mod in modifier_order if mod in pressed_modifiers]
+
+            if pressed_key:
+                hotkey_parts.append(pressed_key)
+
+            display_text = '+'.join(hotkey_parts) if hotkey_parts else "等待按键..."
+
+            if hotkey_parts and not pressed_key:
+                display_text += "（无效：需包含主键）"
+
+            current_hotkey = '+'.join(hotkey_parts) if (hotkey_parts and pressed_key) else ""
+            if current_hotkey and current_hotkey == self.hotkeys['stop' if hotkey_type == 'start' else 'start']:
+                display_text += "（重复：已被占用）"
+
+            key_label.config(text=display_text)
+
+        def finish_capture():
+            nonlocal is_capturing
+            is_capturing = False
+
+            modifier_order = ['ctrl', 'alt', 'shift', 'win']
+            hotkey_parts = [mod for mod in modifier_order if mod in pressed_modifiers]
+            if pressed_key:
+                hotkey_parts.append(pressed_key)
+            hotkey = '+'.join(hotkey_parts)
+
+            if not hotkey:
+                messagebox.showwarning("提示", "快捷键不能为空！")
+                is_capturing = True
+                return
+
+            if pressed_key is None:
+                messagebox.showwarning("提示", "快捷键必须包含一个非修饰键（如A/1/F5等）！")
+                is_capturing = True
+                return
+
+            other_type = 'stop' if hotkey_type == 'start' else 'start'
+            if hotkey == self.hotkeys[other_type]:
+                messagebox.showwarning("提示", f"该快捷键已被{('停止' if other_type == 'stop' else '启动')}功能占用！")
+                is_capturing = True
+                return
+
+            if hotkey_type == 'start':
+                self.start_var.set(hotkey)
+                self.hotkeys['start'] = hotkey
+            else:
+                self.stop_var.set(hotkey)
+                self.hotkeys['stop'] = hotkey
+
+            messagebox.showinfo("成功", f"快捷键已设置为: {hotkey}")
+            close_setting_window()
+
+        def close_setting_window():
+            nonlocal is_capturing
+            is_capturing = False
+
+            try:
+                self.setting_window.unbind('<KeyPress>')
+                self.setting_window.unbind('<KeyRelease>')
+                self.setting_window.grab_release()
+                self.setting_window.destroy()
+            except:
+                pass
+            self.setting_window = None
+
+            self.disable_modify_buttons(False)
+            if self.window and self.window.winfo_exists():
+                self.window.focus_force()
+
+        self.setting_window.bind('<KeyPress>', key_event_record)
+        self.setting_window.bind('<KeyRelease>', key_event_record)
+        self.setting_window.protocol("WM_DELETE_WINDOW", close_setting_window)
+
+        btn_frame = tk.Frame(self.setting_window)
+        btn_frame.pack(pady=5)
+        tk.Button(btn_frame, text="确认", command=finish_capture, width=8).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="取消", command=close_setting_window, width=8).pack(side=tk.LEFT, padx=5)
+
+    def disable_modify_buttons(self, disable=True):
+        state = "disabled" if disable else "normal"
+        for btn in self.modify_buttons:
+            if btn.winfo_exists():
+                btn.config(state=state)
+
+    def on_window_close(self):
+        try:
+            if self.setting_window and self.setting_window.winfo_exists():
+                self.setting_window.grab_release()
+                self.setting_window.destroy()
+        except:
+            pass
+
+        try:
+            if self.parent:
+                self.window.destroy()
+            else:
+                self.window.quit()
+                self.window.destroy()
+        except:
+            pass
+
+    def save(self):
+        if self.save_config():
+            messagebox.showinfo("成功", "快捷键设置已保存，应用将重启...")
+
+            if self.on_save_callback:
+                self.window.after(100, self.on_save_callback)
+            else:
+                self.restart_app()
+
+    def restart_app(self):
+        try:
+            keyboard.unhook_all()
+            if self.parent:
+                self.parent.destroy()
+            else:
+                self.window.destroy()
+
+            python = sys.executable
+            subprocess.Popen([python] + sys.argv)
+
+            if self.parent:
+                self.parent.quit()
+            else:
+                self.window.quit()
+
+        except Exception as e:
+            messagebox.showerror("错误", f"重启应用失败：{str(e)}")
+
+    def run(self):
+        if not self.parent:
+            self.window.mainloop()
+
+
 class MultiTabs(ttk.Notebook):
     def __init__(self, master=None, tab=None, root=None, init_tab_amount=1, **kw):
         super().__init__(master, **kw)
@@ -421,9 +800,10 @@ class App:
     def __init__(self, root):
         self.root = root
         self.root.title("点点侠")
-        self.root.iconbitmap(resource_path("app.ico"))
+        self.root.iconbitmap(resource_path(ICO_FILE))
+
         window_width = 350
-        window_height = 650
+        window_height = 670
         screen_width = root.winfo_screenwidth()
         screen_height = root.winfo_screenheight()
         window_x = max(0, screen_width - window_width - 160)
@@ -431,16 +811,94 @@ class App:
         self.root.geometry(f'{window_width}x{window_height}+{window_x}+{window_y}')
         self.root.resizable(0, 0)
 
+        self.control_frame = tk.Frame(root, height=40)
+        self.control_frame.pack(fill=tk.X, pady=(5, 0))
+
+        self.hotkey_manager = None
+        self.setup_hotkey_button()
+
         self.pages = MultiTabs(root, Page, root=root)
         self.pages.pack(fill=tk.BOTH, expand=True)
 
         style = ttk.Style()
         style.layout("TNotebook", [])
 
+    def setup_hotkey_button(self):
+        self.settings_btn = tk.Button(
+            self.control_frame,
+            text=" ⚙ 快捷键设置",
+            command=self.open_hotkey_settings,
+            font=("Arial", 9),
+            width=12
+        )
+        self.settings_btn.pack(side=tk.LEFT, padx=0)
+
+    def open_hotkey_settings(self):
+        if self.hotkey_manager is None:
+            self.hotkey_manager = SimpleHotkeySettings(parent=self.root, on_save_callback=self.restart_app)
+
+        if not hasattr(self.hotkey_manager, 'window') or self.hotkey_manager.window is None:
+            self.hotkey_manager.create_window()
+
+        try:
+            self.hotkey_manager.window.deiconify()
+            self.hotkey_manager.window.lift()
+            self.hotkey_manager.window.focus_force()
+        except Exception as e:
+            self.hotkey_manager.create_window()
+            self.hotkey_manager.window.deiconify()
+
+    def restart_app(self):
+        try:
+            if self.hotkey_manager and hasattr(self.hotkey_manager, 'window'):
+                try:
+                    if self.hotkey_manager.window and self.hotkey_manager.window.winfo_exists():
+                        self.hotkey_manager.window.destroy()
+                except:
+                    pass
+            cmd = []
+            if hasattr(sys, 'frozen') or '__compiled__' in globals():
+                if 'pyinstaller' in sys.executable.lower():
+                    cmd = [sys.executable] + sys.argv[1:]
+                else:
+                    current_exe = os.path.abspath(sys.argv[0])
+                    if not os.path.exists(current_exe):
+                        raise FileNotFoundError(f"Nuitka编译的EXE不存在：{current_exe}")
+                    cmd = [current_exe] + sys.argv[1:]
+            else:
+                python = sys.executable
+                script = os.path.abspath(sys.argv[0])
+                cmd = [python, script] + sys.argv[1:]
+            creationflags = 0
+            if sys.platform == 'win32':
+                creationflags = 0x00000008
+            subprocess.Popen(
+                cmd,
+                creationflags=creationflags,
+                cwd=os.getcwd()
+            )
+            self.root.quit()
+            self.root.destroy()
+        except Exception as e:
+            messagebox.showerror("错误", f"重启应用失败：{str(e)}")
+
+    def on_closing(self):
+        if self.hotkey_manager and hasattr(self.hotkey_manager, 'window'):
+            try:
+                if (self.hotkey_manager.window and
+                        hasattr(self.hotkey_manager.window, 'winfo_exists') and
+                        self.hotkey_manager.window.winfo_exists()):
+                    self.hotkey_manager.window.destroy()
+            except:
+                pass
+        self.root.destroy()
+
 
 def main():
     root = tk.Tk()
     app = App(root)
+
+    root.protocol("WM_DELETE_WINDOW", app.on_closing)
     root.mainloop()
 
 
